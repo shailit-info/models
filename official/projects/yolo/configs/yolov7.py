@@ -52,7 +52,7 @@ def _build_path_scales(min_level, max_level):
 @dataclasses.dataclass
 class TfExampleDecoder(hyperparams.Config):
   regenerate_source_id: bool = False
-  coco91_to_80: bool = True
+  coco91_to_80: bool = False
 
 
 @dataclasses.dataclass
@@ -113,7 +113,7 @@ class YoloV7(hyperparams.Config):
       nms_version='iou',
       iou_thresh=0.001,
       nms_thresh=0.7,
-      max_boxes=300,
+      max_boxes=100,
       pre_nms_points=5000,
   )
   loss: YoloV7Loss = YoloV7Loss()
@@ -123,7 +123,7 @@ class YoloV7(hyperparams.Config):
       norm_momentum=0.99,
       norm_epsilon=0.001,
   )
-  num_classes: int = 80
+  num_classes: int = 3
   min_level: int = 3
   max_level: int = 5
   anchor_boxes: AnchorBoxes = AnchorBoxes()
@@ -146,14 +146,19 @@ class YoloV7Task(cfg.TaskConfig):
   seed = GLOBAL_SEED
   # Sets maximum number of boxes to be evaluated by coco eval api.
   max_num_eval_detections: int = 100
-
-
+'''
 COCO_INPUT_PATH_BASE = (
-    '/readahead/200M/placer/prod/home/tensorflow-performance-data/datasets/coco'
+  'gs://model_tfrecords/retinanet/yolov7_tmp4/'
 )
-COCO_TRAIN_EXAMPLES = 118287
-COCO_VAL_EXAMPLES = 5000
+COCO_TRAIN_EXAMPLES = 359
+COCO_VAL_EXAMPLES = 71
 
+'''
+COCO_INPUT_PATH_BASE = (
+  'gs://model_tfrecords/retinanet/yolov7_full/'
+)
+COCO_TRAIN_EXAMPLES = 25496
+COCO_VAL_EXAMPLES = 336
 
 @exp_factory.register_config_factory('yolov7')
 def yolov7() -> cfg.ExperimentConfig:
@@ -170,15 +175,19 @@ def yolov7() -> cfg.ExperimentConfig:
 @exp_factory.register_config_factory('coco_yolov7')
 def coco_yolov7() -> cfg.ExperimentConfig:
   """COCO object detection with YOLOv7."""
-  train_batch_size = 256
-  eval_batch_size = 256
+  train_batch_size = 16#24#32#64#256
+  eval_batch_size = 16#24#32#64#256
   train_epochs = 300
   steps_per_epoch = COCO_TRAIN_EXAMPLES // train_batch_size
   validation_interval = 5
   warmup_steps = 3 * steps_per_epoch
 
   config = cfg.ExperimentConfig(
-      runtime=cfg.RuntimeConfig(mixed_precision_dtype='float32'),
+      #runtime=cfg.RuntimeConfig(mixed_precision_dtype='float16'),
+      #runtime=cfg.RuntimeConfig(distribution_strategy='mirrored', all_reduce_alg='nccl', mixed_precision_dtype='float16', num_gpus=2),
+      runtime=cfg.RuntimeConfig(distribution_strategy='multi_worker_mirrored', mixed_precision_dtype='float16', num_gpus=2), #working
+      #runtime=cfg.RuntimeConfig(distribution_strategy='one_device', mixed_precision_dtype='float16', num_gpus=1),
+      #runtime=cfg.RuntimeConfig(distribution_strategy='multi_worker_mirrored', all_reduce_alg='nccl',mixed_precision_dtype='float32', num_gpus=1),#Start cannot spawn child process: No such file or directory
       task=YoloV7Task(
           init_checkpoint='',
           init_checkpoint_modules='backbone',
@@ -214,35 +223,26 @@ def coco_yolov7() -> cfg.ExperimentConfig:
               dtype='float32',
               parser=Parser(
                   max_num_instances=300,
-                  letter_box=True,
-                  random_flip=True,
+                  letter_box=False,
+                  random_flip=False,
                   random_pad=False,
                   jitter=0.0,
                   aug_scale_min=1.0,
                   aug_scale_max=1.0,
-                  aug_rand_translate=0.2,
-                  aug_rand_saturation=0.7,
-                  aug_rand_brightness=0.4,
-                  aug_rand_hue=0.015,
+                  aug_rand_translate=0.0,
+                  aug_rand_saturation=0.0,
+                  aug_rand_brightness=0.0,
+                  aug_rand_hue=0.0,
                   aug_rand_angle=0.0,
                   aug_rand_perspective=0.0,
-                  use_tie_breaker=True,
+                  use_tie_breaker=False,
                   best_match_only=True,
                   anchor_thresh=4.0,
                   area_thresh=0.0,
-                  mosaic=Mosaic(
-                      mosaic_frequency=1.0,
-                      mosaic9_frequency=0.2,
-                      mixup_frequency=0.15,
-                      mosaic_crop_mode='scale',
-                      mosaic_center=0.25,
-                      aug_scale_min=0.1,
-                      aug_scale_max=1.9,
-                  ),
               ),
           ),
           validation_data=DataConfig(
-              input_path=os.path.join(COCO_INPUT_PATH_BASE, 'val*'),
+              input_path=os.path.join(COCO_INPUT_PATH_BASE, 'eval*'),
               is_training=False,
               global_batch_size=eval_batch_size,
               drop_remainder=True,
@@ -254,7 +254,7 @@ def coco_yolov7() -> cfg.ExperimentConfig:
                   best_match_only=True,
                   anchor_thresh=4.0,
                   area_thresh=0.0,
-              ),
+                  ),
           ),
           smart_bias_lr=0.1,
       ),
@@ -264,7 +264,7 @@ def coco_yolov7() -> cfg.ExperimentConfig:
           best_checkpoint_metric_comp='higher',
           train_steps=train_epochs * steps_per_epoch,
           validation_steps=COCO_VAL_EXAMPLES // eval_batch_size,
-          validation_interval=validation_interval * steps_per_epoch,
+          validation_interval=validation_interval * steps_per_epoch, #set 1
           steps_per_loop=steps_per_epoch,
           summary_interval=steps_per_epoch,
           checkpoint_interval=steps_per_epoch,
@@ -288,7 +288,7 @@ def coco_yolov7() -> cfg.ExperimentConfig:
               'learning_rate': {
                   'type': 'cosine',
                   'cosine': {
-                      'initial_learning_rate': 0.01,
+                      'initial_learning_rate': 0.001,
                       'alpha': 0.1,
                       'decay_steps': train_epochs * steps_per_epoch,
                   },
@@ -346,4 +346,22 @@ def coco_yolov7x() -> cfg.ExperimentConfig:
   config = coco_yolov7()
   config.task.model.backbone.yolov7.model_id = 'yolov7x'
   config.task.model.decoder.yolov7.model_id = 'yolov7x'
+  return config
+
+@exp_factory.register_config_factory('benjamin_yolov7x')
+def benjamin_yolov7x() -> cfg.ExperimentConfig:
+  print(f'benjamin_yolov7x is called.')
+  config = coco_yolov7x()
+  config.task.model.input_size = [640, 640, 3]
+  config.task.train_data.shuffle_buffer_size = 16
+  config.task.validation_data.shuffle_buffer_size = 16
+  return config
+
+@exp_factory.register_config_factory('benjamin_yolov7_tiny')
+def benjamin_yolov7_tiny() -> cfg.ExperimentConfig:
+  print(f'benjamin_yolov7_tiny is called.')
+  config = coco_yolov7_tiny()
+  config.task.model.input_size = [640, 640, 3]
+  config.task.train_data.shuffle_buffer_size = 16
+  config.task.validation_data.shuffle_buffer_size = 16
   return config
