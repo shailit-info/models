@@ -41,6 +41,10 @@ def get_image_input_signatures(input_type: str,
     input_signature = tf.TensorSpec(
         shape=[batch_size] + [None] * len(input_image_size) + [num_channels],
         dtype=tf.uint8, name=input_name)
+  elif input_type == 'image_tensor_rig_float':
+    input_signature = tf.TensorSpec(
+        shape=[batch_size] + [None] * len(input_image_size) + [num_channels],
+        dtype=tf.float32, name=input_name)
   elif input_type in ['image_bytes', 'serve_examples', 'tf_example']:
     input_signature = tf.TensorSpec(
         shape=[batch_size], dtype=tf.string, name=input_name)

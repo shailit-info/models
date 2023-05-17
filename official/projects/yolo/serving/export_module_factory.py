@@ -230,12 +230,30 @@ def create_yolo_export_module(
 
     return final_outputs
 
+  def postprocess_fn(outputs):
+    confidence_threshold = 0.55
+    nms_iou_threshold = 0.35
+    max_detections = 100
+
+    # non_max_suppression returns nms selected indices:
+    nms_indices = tf.image.non_max_suppression(
+        outputs['detection_boxes'][0],
+        outputs['detection_scores'][0],
+        max_output_size=max_detections,
+        iou_threshold=nms_iou_threshold,
+        score_threshold=confidence_threshold)
+    # pick out selected indices:
+    filtered_boxes = tf.gather(outputs['detection_boxes'][0], nms_indices)
+    filtered_scores = tf.gather(outputs['detection_scores'][0], nms_indices)
+    return filtered_boxes, filtered_scores
+
   export_module = ExportModule(
       params,
       model=model,
       input_signature=input_signature,
       preprocessor=preprocess_fn,
-      inference_step=inference_steps)
+      inference_step=inference_steps,
+      postprocessor=postprocess_fn)
 
   return export_module
 

@@ -78,5 +78,5 @@ def undo_info(boxes: tf.Tensor,
   boxes += tf.tile(offset, [1, 1, 2])
   boxes /= tf.tile(scale, [1, 1, 2])
   boxes = box_ops.clip_boxes(boxes, ogshape)
-  boxes = box_ops.normalize_boxes(boxes, ogshape)
+  #boxes = box_ops.normalize_boxes(boxes, ogshape)
   return boxes

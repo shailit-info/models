@@ -162,8 +162,7 @@ class ConvBN(tf.keras.layers.Layer):
       self.bn = self._bn_base(
           momentum=self._norm_momentum,
           epsilon=self._norm_epsilon,
-          axis=self._bn_axis,
-          synchronized=self._use_sync_bn)
+          axis=self._bn_axis)
     else:
       self.bn = None
 
@@ -1916,7 +1915,6 @@ class RepConv(tf.keras.layers.Layer):
     )
     bn_op = functools.partial(
         tf.keras.layers.BatchNormalization,
-        synchronized=self._use_sync_bn,
         momentum=self._norm_momentum,
         epsilon=self._norm_epsilon,
     )

@@ -16,7 +16,7 @@
 
 # pylint: disable=wildcard-import
 from official.modeling.optimization.configs.learning_rate_config import *
-from official.modeling.optimization.ema_optimizer import ExponentialMovingAverage
+#from official.modeling.optimization.ema_optimizer import ExponentialMovingAverage
 from official.projects.yolo.optimization.configs.optimization_config import *
 from official.projects.yolo.optimization.configs.optimizer_config import *
 from official.projects.yolo.optimization.optimizer_factory import OptimizerFactory as YoloOptimizerFactory
