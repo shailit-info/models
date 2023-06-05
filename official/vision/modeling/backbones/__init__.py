@@ -14,6 +14,7 @@
 
 """Backbones package definition."""
 
+'''
 from official.vision.modeling.backbones.efficientnet import EfficientNet
 from official.vision.modeling.backbones.mobiledet import MobileDet
 from official.vision.modeling.backbones.mobilenet import MobileNet
@@ -24,3 +25,4 @@ from official.vision.modeling.backbones.revnet import RevNet
 from official.vision.modeling.backbones.spinenet import SpineNet
 from official.vision.modeling.backbones.spinenet_mobile import SpineNetMobile
 from official.vision.modeling.backbones.vit import VisionTransformer
+'''
